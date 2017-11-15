@@ -9,6 +9,7 @@ import (
 	"github.com/mongodb/mongo-tools/common/util"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"strings"
 	"time"
 )
 
@@ -103,7 +104,23 @@ func (mo *MongoOplog) Run() error {
 		err := toSession.Run(bson.M{"applyOps": opsToApply}, res)
 
 		if err != nil {
-			return fmt.Errorf("error applying ops: %v", err)
+			missingcollection := strings.Contains(err.Error(), "missing collection")
+			if missingcollection {
+				log.Logvf(log.DebugLow, "error: `%v`", err.Error())
+				log.Logvf(log.DebugLow, "creating collection  `%v`", oplogEntry.Namespace)
+				collection := strings.Split(oplogEntry.Namespace, ".")[1]
+				db := strings.Split(oplogEntry.Namespace, ".")[0]
+				creation_err := toSession.DB(db).C(collection).Create(&mgo.CollectionInfo{})
+				if creation_err != nil {
+					return fmt.Errorf("error creating collection : %v", oplogEntry.Namespace)
+				}
+				err := toSession.Run(bson.M{"applyOps": opsToApply}, res)
+				if err != nil {
+					return fmt.Errorf("error applying ops: %v", err)
+				}
+			} else {
+				return fmt.Errorf("error applying ops: %v", err)
+			}
 		}
 
 		// check the server's response for an issue
@@ -146,6 +163,8 @@ func buildTailingCursor(oplog *mgo.Collection,
 	}
 
 	// TODO: wait time
-	return oplog.Find(oplogQuery).Iter()
+  // TODO: HSFT: make tailable optional
+	// return oplog.Find(oplogQuery).Iter()
+	return oplog.Find(oplogQuery).Tail(-1)
 
 }

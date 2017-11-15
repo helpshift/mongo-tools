@@ -21,6 +21,7 @@ func main() {
 	opts.AddOptions(sourceOpts)
 
 	log.Logvf(log.Always, "warning: mongooplog is deprecated, and will be removed completely in a future release")
+  log.Logvf(log.Always, "Patched and maintained by Helpshift Ops")
 
 	// parse the command line options
 	args, err := opts.ParseArgs(os.Args[1:])
