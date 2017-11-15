@@ -460,7 +460,7 @@ functions:
         done
 
         #TODO mongotop needs a test
-        for i in mongoimport mongoexport mongostat mongorestore mongodump mongofiles; do
+        for i in mongoimport mongoexport mongostat mongooplog mongorestore mongodump mongofiles; do
             cd $i
             COVERAGE_ARGS=""
             if [ "${run_coverage}" ]; then
@@ -497,7 +497,7 @@ functions:
           echo "${create_mongod_users_command}" | ./bin/mongo${extension} ${mongo_args} admin
         fi;
 
-        for i in mongoimport mongoexport mongostat mongorestore mongodump mongofiles; do
+        for i in mongoimport mongoexport mongostat mongooplog mongorestore mongodump mongofiles; do
             cd $i
             COVERAGE_ARGS=""
             if [ "${run_coverage}" ]; then
@@ -530,7 +530,7 @@ functions:
 
         . ./set_gopath.sh
 
-        for i in mongoimport mongoexport mongostat mongorestore mongodump mongofiles; do
+        for i in mongoimport mongoexport mongostat mongooplog mongorestore mongodump mongofiles; do
             cd $i
             perl -pe 's/.*src/github.com\/mongodb\/mongo-tools/' coverage_$i.out > coverage_$i_rewrite.out
             ${gorootvars} go tool cover -html=coverage_$i_rewrite.out -o coverage_$i.html
@@ -779,7 +779,7 @@ pre:
       script: |
         set -x
           set -v
-        ${killall_mci|pkill -9 mongo; pkill -9 mongodump; pkill -9 mongoexport; pkill -9 mongoimport; pkill -9 mongofiles; pkill -9 mongorestore; pkill -9 mongostat; pkill -9 mongotop; pkill -9 mongod; pkill -9 mongos; pkill -f buildlogger.py; pkill -f smoke.py} >/dev/null 2>&1
+        ${killall_mci|pkill -9 mongo; pkill -9 mongodump; pkill -9 mongoexport; pkill -9 mongoimport; pkill -9 mongofiles; pkill -9 mongooplog; pkill -9 mongorestore; pkill -9 mongostat; pkill -9 mongotop; pkill -9 mongod; pkill -9 mongos; pkill -f buildlogger.py; pkill -f smoke.py} >/dev/null 2>&1
         rm -rf src /data/db/*
         exit 0
 
@@ -793,7 +793,7 @@ post:
       script: |
         set -x
           set -v
-        ${killall_mci|pkill -9 mongo; pkill -9 mongodump; pkill -9 mongoexport; pkill -9 mongoimport; pkill -9 mongofiles; pkill -9 mongorestore; pkill -9 mongostat; pkill -9 mongotop; pkill -9 mongod; pkill -9 mongos; pkill -f buildlogger.py; pkill -f smoke.py} >/dev/null 2>&1
+        ${killall_mci|pkill -9 mongo; pkill -9 mongodump; pkill -9 mongoexport; pkill -9 mongoimport; pkill -9 mongofiles; pkill -9 mongooplog; pkill -9 mongorestore; pkill -9 mongostat; pkill -9 mongotop; pkill -9 mongod; pkill -9 mongos; pkill -f buildlogger.py; pkill -f smoke.py} >/dev/null 2>&1
         exit 0
   - command: gotest.parse_files
     params:
@@ -818,7 +818,7 @@ timeout:
         # don't attempt to abort on any distro which has a special way of
         # killing everything (i.e. using taskkill on Windows)
         if [ "${killall_mci}" = "" ]; then
-          all_tools="bsondump mongodump mongoexport mongofiles mongoimport mongorestore mongostat mongotop"
+          all_tools="bsondump mongodump mongoexport mongofiles mongoimport mongooplog mongorestore mongostat mongotop"
           # send SIGABRT to print a stacktrace for any hung tool
           pkill -ABRT "^($(echo -n $all_tools | tr ' ' '|'))\$"
           # git the processes a second or two to dump their stacks
@@ -884,6 +884,13 @@ tasks:
     - func: "upload tool"
       vars:
         tool: mongoimport
+    # mongooplog
+    - func: "build tool"
+      vars:
+        tool: mongooplog
+    - func: "upload tool"
+      vars:
+        tool: mongooplog
     # mongorestore
     - func: "build tool"
       vars:
@@ -984,6 +991,9 @@ tasks:
         tool: mongorestore
     - func: "fetch tool"
       vars:
+        tool: mongooplog
+    - func: "fetch tool"
+      vars:
         tool: mongofiles
     - func: "run legacy tests"
       vars:
@@ -1015,6 +1025,9 @@ tasks:
     - func: "fetch tool"
       vars:
         tool: mongorestore
+    - func: "fetch tool"
+      vars:
+        tool: mongooplog
     - func: "fetch tool"
       vars:
         tool: mongofiles
@@ -1050,10 +1063,53 @@ tasks:
         tool: mongorestore
     - func: "fetch tool"
       vars:
+        tool: mongooplog
+    - func: "fetch tool"
+      vars:
         tool: mongofiles
     - func: "run legacy tests"
       vars:
         test_path: "test/legacy26"
+        smoke_use_ssl: ""
+
+- name: legacy24
+  depends_on:
+  - name: dist
+  commands:
+    - func: "fetch source"
+    - func: "get buildnumber"
+    - func: "setup credentials"
+    - func: "download mongod"
+      vars:
+        mongo_version: "2.4"
+    - func: "download mongod"
+      vars:
+        mongo_version: "2.6"
+        only_shell: true
+    - func: "fetch tool"
+      vars:
+        tool: mongoimport
+    - func: "fetch tool"
+      vars:
+        tool: mongoexport
+    - func: "fetch tool"
+      vars:
+        tool: mongodump
+    - func: "fetch tool"
+      vars:
+        tool: mongostat
+    - func: "fetch tool"
+      vars:
+        tool: mongorestore
+    - func: "fetch tool"
+      vars:
+        tool: mongooplog
+    - func: "fetch tool"
+      vars:
+        tool: mongofiles
+    - func: "run legacy tests"
+      vars:
+        test_path: "test/legacy24"
         smoke_use_ssl: ""
 
 - name: lint-go
@@ -1115,6 +1171,9 @@ tasks:
         tool: mongotop
     - func: "fetch tool"
       vars:
+        tool: mongooplog
+    - func: "fetch tool"
+      vars:
         tool: mongofiles
     - func: "fetch tool"
       vars:
@@ -1151,6 +1210,9 @@ tasks:
     - func: "fetch tool"
       vars:
         tool: mongotop
+    - func: "fetch tool"
+      vars:
+        tool: mongooplog
     - func: "fetch tool"
       vars:
         tool: mongofiles
@@ -1192,6 +1254,9 @@ tasks:
         tool: mongotop
     - func: "fetch tool"
       vars:
+        tool: mongooplog
+    - func: "fetch tool"
+      vars:
         tool: mongofiles
     - func: "fetch tool"
       vars:
@@ -1229,6 +1294,9 @@ tasks:
     - func: "fetch tool"
       vars:
         tool: mongotop
+    - func: "fetch tool"
+      vars:
+        tool: mongooplog
     - func: "fetch tool"
       vars:
         tool: mongofiles
@@ -1365,6 +1433,9 @@ tasks:
         tool: mongotop
     - func: "fetch tool"
       vars:
+        tool: mongooplog
+    - func: "fetch tool"
+      vars:
         tool: mongofiles
     - func: "fetch tool"
       vars:
@@ -1404,6 +1475,13 @@ tasks:
         updates:
           - key: "coverage_pkg"
             value: "mongostat"
+    - func: "upload html coverage"
+    - func: "upload text coverage"
+    - command: expansions.update
+      params:
+        updates:
+          - key: "coverage_pkg"
+            value: "mongooplog"
     - func: "upload html coverage"
     - func: "upload text coverage"
     - command: expansions.update

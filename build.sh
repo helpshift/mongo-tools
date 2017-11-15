@@ -22,6 +22,7 @@ mkdir -p bin
 
 ec=0
 for i in bsondump mongostat mongofiles mongoexport mongoimport mongorestore mongodump mongotop mongoreplay; do
+for i in bsondump mongostat mongofiles mongoexport mongoimport mongorestore mongodump mongotop mongooplog mongoreplay; do
         echo "Building ${i}..."
         go build -o "bin/$i" -tags "$tags" "$i/main/$i.go" || { echo "Error building $i"; ec=1; break; }
         ./bin/$i --version | head -1
