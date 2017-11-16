@@ -3,6 +3,7 @@ package mongooplog
 
 import (
 	"fmt"
+	"github.com/mongodb/mongo-tools/common/bsonutil"
 	"github.com/mongodb/mongo-tools/common/db"
 	"github.com/mongodb/mongo-tools/common/log"
 	"github.com/mongodb/mongo-tools/common/options"
@@ -26,6 +27,25 @@ type MongoOplog struct {
 
 	// session provider for the destination server
 	SessionProviderTo *db.SessionProvider
+}
+
+// Dump oplog data for debugging
+func printOplog(oplog *db.Oplog) error {
+	value, bsonerr := bsonutil.GetBSONValueAsJSON(oplog.Timestamp)
+	log.Logvf(log.DebugLow, "oplog : Timestamp %v", value)
+	value, bsonerr = bsonutil.GetBSONValueAsJSON(oplog.HistoryID)
+	log.Logvf(log.DebugLow, "oplog : HistoryID %v", value)
+	value, bsonerr = bsonutil.GetBSONValueAsJSON(oplog.Version)
+	log.Logvf(log.DebugLow, "oplog : Version %v", value)
+	value, bsonerr = bsonutil.GetBSONValueAsJSON(oplog.Operation)
+	log.Logvf(log.DebugLow, "oplog : Operation %v", value)
+	value, bsonerr = bsonutil.GetBSONValueAsJSON(oplog.Namespace)
+	log.Logvf(log.DebugLow, "oplog : Namespace %v", value)
+	value, bsonerr = bsonutil.GetBSONValueAsJSON(oplog.Object)
+	log.Logvf(log.DebugLow, "oplog : Object %v", value)
+	value, bsonerr = bsonutil.GetBSONValueAsJSON(oplog.Query)
+	log.Logvf(log.DebugLow, "oplog : Query %v", value)
+	return bsonerr
 }
 
 // Run executes the mongooplog program.
@@ -97,6 +117,11 @@ func (mo *MongoOplog) Run() error {
 		}
 		opCount++
 
+		// log every 100th oplog to show progress
+		if opCount%100 == 1 {
+			log.Logvf(log.DebugLow, "applying oplog %v ", opCount)
+			printOplog(oplogEntry)
+		}
 		// prepare the op to be applied
 		opsToApply := []db.Oplog{*oplogEntry}
 
@@ -104,6 +129,8 @@ func (mo *MongoOplog) Run() error {
 		err := toSession.Run(bson.M{"applyOps": opsToApply}, res)
 
 		if err != nil {
+			log.Logvf(log.DebugLow, "error: applying oplog %v ", opCount)
+			printOplog(oplogEntry)
 			missingcollection := strings.Contains(err.Error(), "missing collection")
 			if missingcollection {
 				log.Logvf(log.DebugLow, "error: `%v`", err.Error())
@@ -163,7 +190,7 @@ func buildTailingCursor(oplog *mgo.Collection,
 	}
 
 	// TODO: wait time
-  // TODO: HSFT: make tailable optional
+	// TODO: HSFT: make tailable optional
 	// return oplog.Find(oplogQuery).Iter()
 	return oplog.Find(oplogQuery).Tail(-1)
 
