@@ -132,10 +132,11 @@ func (mo *MongoOplog) Run() error {
 			log.Logvf(log.DebugLow, "error: applying oplog %v ", opCount)
 			printOplog(oplogEntry)
 			missingcollection := strings.Contains(err.Error(), "missing collection")
+			duplicatekey := strings.Contains(err.Error(), "E11000")
+			collection := strings.Split(oplogEntry.Namespace, ".")[1]
 			if missingcollection {
 				log.Logvf(log.DebugLow, "error: `%v`", err.Error())
 				log.Logvf(log.DebugLow, "creating collection  `%v`", oplogEntry.Namespace)
-				collection := strings.Split(oplogEntry.Namespace, ".")[1]
 				db := strings.Split(oplogEntry.Namespace, ".")[0]
 				creation_err := toSession.DB(db).C(collection).Create(&mgo.CollectionInfo{})
 				if creation_err != nil {
@@ -145,14 +146,22 @@ func (mo *MongoOplog) Run() error {
 				if err != nil {
 					return fmt.Errorf("error applying ops: %v", err)
 				}
+			} else if duplicatekey {
+				log.Logvf(log.DebugHigh, "duplicate key encountered: %v", err.Error())
 			} else {
-				return fmt.Errorf("error applying ops: %v", err)
+				return fmt.Errorf("hsft: error applying ops: %v", err)
 			}
 		}
 
 		// check the server's response for an issue
 		if !res.Ok {
-			return fmt.Errorf("server gave error applying ops: %v", res.ErrMsg)
+			missingcollection := strings.Contains(res.ErrMsg, "missing collection")
+			duplicatekey := strings.Contains(res.ErrMsg, "E11000")
+			if duplicatekey || missingcollection {
+				log.Logvf(log.DebugHigh, "server gave: %v", res.ErrMsg)
+			} else {
+				return fmt.Errorf("server gave error applying ops: %v", res.ErrMsg)
+			}
 		}
 	}
 
